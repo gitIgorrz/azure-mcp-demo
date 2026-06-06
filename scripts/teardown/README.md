@@ -38,7 +38,7 @@ raw `az` commands, to keep state consistent.
 
 ### Option A — HCP TF portal (recommended)
 
-1. Open `app.terraform.io` → org `gitIgorrz` → workspace `az-mcp-demo`.
+1. Open `app.terraform.io` → org `gitIgorrz` → workspace `azure-mcp-demo`.
 2. **Settings → Destruction and Deletion → Queue destroy plan**.
 3. Review: confirm the plan lists only `rg-mcp-demo-lab` and its child resources.
 4. Type the workspace name to confirm, then **Apply destroy plan**.
@@ -70,7 +70,7 @@ terraform destroy               # review plan, type 'yes' to confirm
 These were created by the Phase 2 setup scripts and require manual removal (step 3):
 - CI Entra app registration + 3 federated credentials
 - PIM group `grp-mcp-demo-tf-apply` + PIM-eligible role assignment
-- HCP Terraform workspace `az-mcp-demo` and its variable sets
+- HCP Terraform workspace `azure-mcp-demo` and its variable sets
 
 ---
 
@@ -99,7 +99,7 @@ gh repo archive gitIgorrz/azure-mcp-demo
 ## Step 5 — delete HCP workspace
 
 After the Terraform destroy (step 2) has cleared all managed resources:
-1. `app.terraform.io` → workspace `az-mcp-demo` → **Settings → Destruction and Deletion**.
+1. `app.terraform.io` → workspace `azure-mcp-demo` → **Settings → Destruction and Deletion**.
 2. **Delete from HCP Terraform** → confirm by typing workspace name.
 
 ---

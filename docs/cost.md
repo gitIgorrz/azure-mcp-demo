@@ -61,7 +61,7 @@ gh workflow disable tf-apply.yml
 ### Step 2 — Terraform destroy
 
 Trigger a destroy plan in HCP Terraform:
-1. Open `app.terraform.io` → org `gitIgorrz` → workspace `az-mcp-demo`.
+1. Open `app.terraform.io` → org `gitIgorrz` → workspace `azure-mcp-demo`.
 2. Go to **Settings → Destruction and Deletion → Queue destroy plan**.
 3. Review the plan output — confirm it targets only `rg-mcp-demo-lab` resources.
 4. **Approve** the destroy. Wait for completion.
@@ -92,7 +92,7 @@ gh repo archive gitIgorrz/azure-mcp-demo
 
 ### Step 5 — delete the HCP workspace
 
-In `app.terraform.io` → workspace `az-mcp-demo` → **Settings → Destruction and Deletion →
+In `app.terraform.io` → workspace `azure-mcp-demo` → **Settings → Destruction and Deletion →
 Delete from HCP Terraform**. The destroy plan in step 2 must complete first (the workspace
 must have no managed resources).
 

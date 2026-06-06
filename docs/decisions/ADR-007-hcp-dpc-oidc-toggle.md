@@ -5,7 +5,7 @@
 
 ## Context
 
-HCP Terraform workspace `az-mcp-demo` needs to authenticate to Azure to run `plan` and
+HCP Terraform workspace `azure-mcp-demo` needs to authenticate to Azure to run `plan` and
 `apply`. Options: (a) service principal with client secret (has a secret), (b) service
 principal with federated credential / OIDC (secretless), (c) HCP Dynamic Provider Credentials
 (DPC) which uses OIDC between HCP and Azure (secretless).

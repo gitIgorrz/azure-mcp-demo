@@ -30,7 +30,7 @@ Azure Resource Graph / ARM  (Reader @ resource-group scope)
 - No secrets anywhere — OIDC + federated credentials + managed identity throughout
 - Read-only tools only — no destructive operations exist in the codebase
 - Agent-agnostic — any spec-compliant MCP client can connect; SRE Agent is one example
-- Infrastructure-as-code via Terraform, state in HCP Terraform workspace `az-mcp-demo`
+- Infrastructure-as-code via Terraform, state in HCP Terraform workspace `azure-mcp-demo`
 
 ---
 
@@ -73,7 +73,7 @@ Azure Resource Graph / ARM  (Reader @ resource-group scope)
 1. **Verify billing**: `echo $env:ANTHROPIC_API_KEY` should be empty.
 2. **Azure**: create resource group + UAMI manually (see `scripts/`), then Terraform manages the rest.
 3. **GitHub**: create repo, configure OIDC federated credential (see `scripts/`), set required secrets (none — secretless).
-4. **HCP Terraform**: create workspace `az-mcp-demo` in org `gitIgorrz` / project `igor-lab` (see `scripts/`).
+4. **HCP Terraform**: create workspace `azure-mcp-demo` in org `gitIgorrz` / project `igor-lab` (see `scripts/`).
 5. **Local dev**: set up Python 3.12 + venv + deps (see [CONTRIBUTING.md → Local development environment](CONTRIBUTING.md#local-development-environment)), then `az login` and run `python -m app.server --transport stdio`.
 6. **Deploy**: push to a branch → open PR → CI validates → merge to `main` → Environment gate approval → `terraform apply` + image push.
 

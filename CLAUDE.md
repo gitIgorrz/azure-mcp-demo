@@ -95,7 +95,7 @@ tags = {
 
 ### HCP Terraform
 
-- Org: `gitIgorrz` | Project: `igor-lab` | Workspace: `az-mcp-demo`
+- Org: `gitIgorrz` | Project: `igor-lab` | Workspace: `azure-mcp-demo`
 - Environment directory: `terraform/` (single env for lab)
 
 ---
