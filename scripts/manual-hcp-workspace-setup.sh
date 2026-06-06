@@ -3,7 +3,7 @@
 # manual-hcp-workspace-setup.sh                                  # RUN MANUALLY
 # -----------------------------------------------------------------------------
 # WHAT:  Establishes the HCP Terraform -> Azure trust for workspace
-#        `az-mcp-demo`, SECRETLESS (ADR-005, ADR-007). Two interchangeable paths,
+#        `azure-mcp-demo`, SECRETLESS (ADR-005, ADR-007). Two interchangeable paths,
 #        both with NO client secret:
 #          (DEFAULT)  Dynamic Provider Credentials (DPC) via HCP's OIDC issuer.
 #          (TOGGLE)   A named service principal with an Azure federated credential
@@ -37,7 +37,7 @@ export MSYS_NO_PATHCONV=1
 # ---- Configuration ----------------------------------------------------------
 HCP_ORG="gitIgorrz"
 HCP_PROJECT="igor-lab"
-HCP_WORKSPACE="az-mcp-demo"
+HCP_WORKSPACE="azure-mcp-demo"
 APP_NAME="sp-azure-mcp-demo-hcp-tf"          # dedicated TF identity (audit separation)
 TFE_HOST="app.terraform.io"
 HCP_OIDC_ISSUER="https://${TFE_HOST}"
@@ -113,8 +113,9 @@ cat <<EOF
 ---------------------------------------------------------------------------
 PART B — HCP Terraform workspace '${HCP_WORKSPACE}'
 ---------------------------------------------------------------------------
-Execution mode: VCS-driven (recommended, ADR-007). Connect the workspace to the
-GitHub repo gitIgorrz/azure-mcp-demo with working directory 'terraform/'.
+Execution mode: Remote, CLI-driven. The CI (tf-plan / tf-apply workflows) drives
+Terraform against this workspace via the cloud{} block + HCP_TF_TOKEN — no VCS
+connection is configured. Create the workspace as a "CLI-Driven Workflow".
 
 Set these workspace ENVIRONMENT variables. Choose ONE path. No secret in either.
 

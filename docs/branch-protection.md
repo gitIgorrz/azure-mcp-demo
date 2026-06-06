@@ -64,7 +64,7 @@ Set these in **Settings → Secrets and variables → Actions**.
 
 | Secret name | Description |
 |-------------|-------------|
-| `HCP_TF_TOKEN` | HCP Terraform API token for org `gitIgorrz` / workspace `az-mcp-demo`. Create at: app.terraform.io → User Settings → Tokens |
+| `HCP_TF_TOKEN` | HCP Terraform API token for org `gitIgorrz` / workspace `azure-mcp-demo`. Create at: app.terraform.io → User Settings → Tokens |
 
 ### Repository variables (not secrets — these are identifiers)
 

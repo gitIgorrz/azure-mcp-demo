@@ -157,7 +157,7 @@ CI identity's Contributor scope.
 3. `terraform apply` (again) → creates the Container App
 
 - [x] `terraform/versions.tf` — `required_version = "~> 1.9"`, `azurerm ~> 4.0`,
-      `cloud {}` block (HCP TF org `gitIgorrz` / workspace `az-mcp-demo`, ADR-007).
+      `cloud {}` block (HCP TF org `gitIgorrz` / workspace `azure-mcp-demo`, ADR-007).
 - [x] `terraform/variables.tf` — `subscription_id`, `environment` (lab/int/prod validation),
       `location` (default `australiaeast`), `mcp_tenant_id` (GUID validation), `mcp_audience`,
       `mcp_allowed_app_ids` (optional, default ""), `container_image`, `budget_amount_usd`
@@ -334,4 +334,4 @@ echo $env:ANTHROPIC_API_KEY
 `c:\Users\Igor_\Desktop\REPOS\azure-mcp-demo\`
 
 GitHub: `github.com/gitIgorrz/azure-mcp-demo` *(repo not yet created — Phase 6 / manual)*
-HCP TF: org `gitIgorrz` / project `igor-lab` / workspace `az-mcp-demo` *(not yet created — Phase 2 manual)*
+HCP TF: org `gitIgorrz` / project `igor-lab` / workspace `azure-mcp-demo` *(not yet created — Phase 2 manual)*
