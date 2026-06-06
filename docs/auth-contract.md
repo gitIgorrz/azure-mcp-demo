@@ -70,7 +70,7 @@ All configuration is via environment variables — no identifiers are hardcoded 
 |----------|----------|---------|---------|
 | `MCP_TENANT_ID` | yes | — | Entra tenant GUID; pins `iss`, `tid`, and the JWKS URL |
 | `MCP_AUDIENCE` | yes | — | expected `aud`; comma-separated to accept more than one form (e.g. `api://<guid>,<guid>`) |
-| `MCP_ALLOWED_APP_IDS` | no | _(empty)_ | comma-separated allow-list of caller `azp`/`appid` GUIDs (defence in depth) |
+| `MCP_ALLOWED_APP_IDS` | no | *(empty)* | comma-separated allow-list of caller `azp`/`appid` GUIDs (defence in depth) |
 | `MCP_JWKS_CACHE_TTL_SECONDS` | no | `3600` | JWKS key cache TTL (min 60) |
 | `MCP_JWT_LEEWAY_SECONDS` | no | `60` | clock-skew leeway for `exp`/`nbf` (max 300) |
 
