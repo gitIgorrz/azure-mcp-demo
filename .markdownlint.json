@@ -1,0 +1,14 @@
+{
+  "//": "markdownlint config. Docs wrap prose at ~100 cols and use compact spacing; line-length and a few whitespace rules are relaxed to match house style. Structural correctness rules stay on.",
+  "default": true,
+  "MD013": false,
+  "MD022": false,
+  "MD024": { "siblings_only": true },
+  "MD028": false,
+  "MD029": false,
+  "MD031": false,
+  "MD032": false,
+  "MD033": false,
+  "MD040": false,
+  "MD041": false
+}
