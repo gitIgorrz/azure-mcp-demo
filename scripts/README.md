@@ -74,19 +74,21 @@ Run top-to-bottom; later steps consume identifiers produced by earlier ones.
 | 1 | [`manual-gpg-setup.sh`](manual-gpg-setup.sh) | signed-commit config (detect + reuse key) | CONTRIBUTING.md |
 | 2 | [`manual-server-app-registration.sh`](manual-server-app-registration.sh) | resource/audience app reg (`api://<appId>`, v2.0 tokens, scope + app role) → `MCP_AUDIENCE` | ADR-006 |
 | 3 | [`manual-hcp-workspace-setup.sh`](manual-hcp-workspace-setup.sh) | HCP TF identity + HCP-trusting federated creds (DPC); workspace + variable set | ADR-005, ADR-007 |
-| 4 | [`manual-uami-rbac.sh`](manual-uami-rbac.sh) | User-Assigned MI + Reader @ RG scope | ADR-005, ADR-009 |
-| 5 | [`manual-pim-setup.sh`](manual-pim-setup.sh) | Entra group + Contributor @ RG for the HCP TF identity (PIM-eligible, or permanent fallback if no P2) | ADR-014 |
+| 4 | [`manual-register-resource-providers.sh`](manual-register-resource-providers.sh) | registers `Microsoft.App` / `Microsoft.Insights` / … on the subscription (else the first apply 409s `MissingSubscriptionRegistration`) | — |
+| 5 | [`manual-hcp-tf-bootstrap-rbac.sh`](manual-hcp-tf-bootstrap-rbac.sh) | Contributor @ **subscription** for the HCP TF identity, so the first apply can create the RG | ADR-014 |
+| 6 | [`manual-uami-rbac.sh`](manual-uami-rbac.sh) | User-Assigned MI + Reader @ RG scope | ADR-005, ADR-009 |
+| 7 | [`manual-pim-setup.sh`](manual-pim-setup.sh) | Entra group + Contributor @ RG (optional: tighten the step-5 grant to RG scope) | ADR-014 |
 
 > **No GitHub→Azure CI identity.** This is the **VCS-driven** model (ADR-007): HCP runs
 > Terraform and authenticates to Azure via the DPC federated credentials (step 3). GitHub
 > Actions never authenticates to Azure, so there is no `manual-github-oidc-setup.sh` step.
 
-> **RG dependency (steps 4–5).** The resource group `rg-mcp-demo-lab` is created by
-> **Terraform**, not by these scripts. Steps 4 and 5 reference the RG scope by its resolved
-> resource ID, so run them **after** the first apply creates the RG (each script aborts cleanly
-> if the RG is absent — the chicken-and-egg note is in the script). Steps 1–3 have no RG
-> dependency and run first. So the real sequence is: 1→2→3 → first apply (HCP) → 4 → 5 →
-> second apply (HCP).
+> **RG dependency (steps 6–7).** The resource group `rg-mcp-demo-lab` is created by the first
+> Terraform apply, not by these scripts. Steps 6 and 7 reference the RG scope, so run them
+> **after** the first apply (each aborts cleanly if the RG is absent). Steps 1–5 have no RG
+> dependency. So the real sequence is: 1→2→3→4→5 → first apply (HCP) → 6 → 7. Step 5 grants
+> Contributor at **subscription** scope (the RG can't be the scope before it exists); step 7
+> can optionally narrow that to RG scope afterward.
 
 > **No Entra ID P2?** `manual-pim-setup.sh` defaults to `PIM_MODE=fallback` (permanent
 > Contributor @ RG with compensating controls, ADR-014). The target lab tenant has no P2
