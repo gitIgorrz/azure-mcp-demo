@@ -7,10 +7,55 @@
 
 ## Current status
 
-**Phase:** 8 — Security review ✅ COMPLETE — **all build phases done**
-**Last completed step:** Phase 8 security review (OPUS, 2026-06-05) — see `docs/security-review.md`
-**Next step:** **Provisioning** — operator runs the Phase 2 + Phase 6 manual steps
-(pre-flight checklist in `docs/security-review.md` / `docs/runbook.md`). Nothing deployed yet.
+**Phase:** PROVISIONED & DEPLOYED 🚀 (2026-06-06) — running in Azure (ukwest)
+**Last completed step:** VCS-driven HCP deploy; MCP server live. `/health` ok; auth **enforced**
+(401 without token) and **validated** (valid Entra JWT passes) end-to-end.
+**Next step:** merge **PR #9** (MCP host-validation fix) → redeploy → authenticated **tool call
+returns Azure data** (final proof). Full execution journal: `docs/provisioning-log.md` (local-only).
+Build phases 0–8: complete.
+
+---
+
+## Provisioning & first deploy — 2026-06-06 (OPUS)
+
+All build phases were complete; this session **provisioned and deployed** to Azure. The detailed
+step-by-step (with real resource IDs) is the **local-only** `docs/provisioning-log.md` (gitignored).
+
+### Done
+- **Secretless identities:** new GPG signing key (commits verified on GitHub); server **audience**
+  app reg (`api://<appId>`, v2.0 tokens, `access_as_user` scope + `mcp.access` app role); HCP TF
+  identity with DPC federated creds (`run_phase:plan|apply`); UAMI **Reader @ RG**; subscription
+  **Contributor** bootstrap so the first apply can create the RG. Retired the GitHub-OIDC CI
+  identity (VCS-driven needs no CI→Azure auth).
+- **Repo + CI:** public GitHub repo created, **GPG-signed commits verified**; CI green
+  (lint, unit-tests). Deploy flow: `build-push` → HCP API sets `container_image` + queues a run →
+  **manual apply approval in HCP**.
+- **Deployed (ukwest):** RG, UAMI, Log Analytics, Container App env + app, budget — all live.
+  `/health` returns ok; auth **enforced** (401 no token) and **validated** (valid JWT passes).
+
+### Architecture changes this session (PRs, all merged unless noted)
+- **VCS-driven HCP** instead of CLI-driven — HCP runs Terraform; apply gate is **HCP approval**
+  (not a GitHub Environment). ADR-007 updated; ADR-008 + ADR-013 superseded. (PR #3)
+- Standardized the workspace + all refs on **`azure-mcp-demo`**; default region → **`ukwest`**.
+- New run-manually scripts: `manual-register-resource-providers.sh`,
+  `manual-hcp-tf-bootstrap-rbac.sh`, `manual-preauthorize-client.sh`,
+  `cleanup-github-oidc-identity.sh`.
+
+### Six runtime bugs found only at deploy/startup (the static security review can't catch these) — all fixed
+1. `versions.tf` workspace-name typo (PR #2).
+2. CI Docker build broke: `pyproject.toml` had an invalid `build-backend` → `setuptools.build_meta` (PR #1).
+3. `hashicorp/setup-terraform` pinned to a **typo'd SHA** → all TF workflows failed (PR #1).
+4. Subscription missing the `Microsoft.App` resource provider → first apply 409 (PR #5 + script).
+5. Diagnostic settings used `category_group = "allLogs"` (invalid for Container Apps) → metrics-only (PR #7).
+6. App startup: `FastMCP(description=)` crash (PR #6) → MCP session-manager **lifespan not run**
+   (PR #8) → MCP **DNS-rebinding host validation** rejected the FQDN, 421 (**PR #9, pending**).
+   Added `tests/test_server.py` — the missing server smoke-tests that would have caught #6/#8/#9.
+
+### Remaining
+- Merge **PR #9** → redeploy → authenticated tool call returns Azure data.
+- Optional hardening: after the first apply, narrow the HCP TF SP's **subscription**-Contributor to
+  **RG scope** (`manual-pim-setup.sh`) and remove the subscription grant.
+- Docs: add a "pre-authorizing a client" section to `docs/connecting-agents.md`.
 
 ---
 
@@ -333,5 +378,6 @@ echo $env:ANTHROPIC_API_KEY
 
 `c:\Users\Igor_\Desktop\REPOS\azure-mcp-demo\`
 
-GitHub: `github.com/gitIgorrz/azure-mcp-demo` *(repo not yet created — Phase 6 / manual)*
-HCP TF: org `gitIgorrz` / project `igor-lab` / workspace `azure-mcp-demo` *(not yet created — Phase 2 manual)*
+GitHub: `github.com/gitIgorrz/azure-mcp-demo` *(PUBLIC — created 2026-06-06)*
+HCP TF: org `gitIgorrz` / project `igor-lab` / workspace `azure-mcp-demo` *(VCS-driven — created 2026-06-06)*
+Live: Azure Container Apps in **ukwest** (RG `rg-mcp-demo-lab`); audience `api://<server-app-id>`.
