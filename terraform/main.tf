@@ -198,23 +198,24 @@ resource "azurerm_monitor_diagnostic_setting" "ca_diag" {
   target_resource_id         = azurerm_container_app.ca.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.law.id
 
-  enabled_log {
-    category_group = "allLogs"
-  }
-
+  # Container Apps expose only metrics at the app level (no log categories/groups);
+  # the app's console/system logs reach Log Analytics via the Container App Environment.
   metric {
     category = "AllMetrics"
   }
 }
 
-# Container App Environment system logs (infrastructure events).
+# Container App Environment metrics. Console/system logs already flow to Log
+# Analytics via azurerm_container_app_environment.log_analytics_workspace_id, so
+# routing them again here would double-ingest — metrics only. (The environment
+# supports no diagnostic category groups, only specific categories, per the API.)
 resource "azurerm_monitor_diagnostic_setting" "cae_diag" {
   name                       = "diag-${local.cae_name}"
   target_resource_id         = azurerm_container_app_environment.cae.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.law.id
 
-  enabled_log {
-    category_group = "allLogs"
+  metric {
+    category = "AllMetrics"
   }
 }
 
