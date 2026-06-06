@@ -22,6 +22,7 @@ import logging
 import os
 
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -43,6 +44,13 @@ _mcp = FastMCP(
         "Read-only Azure inventory MCP server. "
         "Requires a valid Entra-issued v2.0 JWT on every request."
     ),
+    # The MCP SDK's DNS-rebinding protection (Host/Origin allow-listing) defends
+    # local, unauthenticated servers reached by browsers. This server is remote,
+    # requires a valid Entra Bearer JWT on every request (no ambient cookies), and
+    # sits behind HTTPS ingress — so that protection is redundant here and would
+    # otherwise reject the Container Apps FQDN with 421 Misdirected Request. The
+    # EntraAuthMiddleware is the request-authenticity control. Disable it.
+    transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
 )
 
 register_all(_mcp)

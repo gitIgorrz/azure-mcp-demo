@@ -50,40 +50,43 @@ def test_create_app_fails_closed_without_config(monkeypatch):
         server.create_app()
 
 
-def test_health_endpoint_unauthenticated(monkeypatch):
-    """GET /health passes through the auth middleware (exempt) and returns ok."""
-    from starlette.testclient import TestClient
+def test_inner_app_serves_health_and_mcp():
+    """The inner app (the production module ``_mcp``) serves /health AND the MCP
+    Streamable-HTTP transport.
 
-    monkeypatch.setenv("MCP_TENANT_ID", _VALID_TENANT)
-    monkeypatch.setenv("MCP_AUDIENCE", _VALID_AUDIENCE)
-    server = importlib.import_module("app.server")
-    with TestClient(server.create_app()) as client:
-        resp = client.get("/health")
-    assert resp.status_code == 200
-    assert resp.json()["status"] == "ok"
+    This exercises the real startup wiring the hermetic auth tests don't — both of
+    these shipped to production before this test existed:
+    * the session manager runs via the app lifespan — otherwise /mcp 500s with
+      "Task group is not initialized", and
+    * DNS-rebinding host validation is configured for remote use — otherwise the
+      request's Host is rejected with 421 Misdirected Request.
 
-
-def test_mcp_transport_session_manager_runs():
-    """The mounted MCP Streamable-HTTP session manager must start via the app lifespan.
-
-    Regression guard: without wiring ``session_manager.run()`` into the parent app's
-    lifespan, every ``/mcp`` request 500s with "Task group is not initialized". We hit
-    the inner (pre-auth) app directly — no Entra token needed — and assert the request
-    reaches the MCP transport (any non-500 response) rather than the uninitialised
-    task group.
+    Uses the module ``_mcp`` (its real ``transport_security``) so a regression in
+    that config is caught. ``_build_inner_app`` skips the auth middleware, so no
+    Entra token is needed.
     """
-    from mcp.server.fastmcp import FastMCP
     from starlette.testclient import TestClient
 
     from app.server import _build_inner_app
 
-    # Fresh FastMCP: a session manager's run() may only be entered once, and the
-    # module-level instance is used (and run) by the other lifespan test.
-    init = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}
-    with TestClient(_build_inner_app(FastMCP("test-server"))) as client:
-        resp = client.post(
+    init = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2025-06-18",
+            "capabilities": {},
+            "clientInfo": {"name": "test", "version": "1"},
+        },
+    }
+    with TestClient(_build_inner_app()) as client:
+        health = client.get("/health")
+        assert health.status_code == 200
+        assert health.json()["status"] == "ok"
+
+        mcp = client.post(
             "/mcp",
             json=init,
             headers={"Accept": "application/json, text/event-stream"},
         )
-    assert resp.status_code != 500, f"MCP transport 500 (lifespan not wired?): {resp.text}"
+    assert mcp.status_code == 200, f"/mcp initialize failed ({mcp.status_code}): {mcp.text}"
