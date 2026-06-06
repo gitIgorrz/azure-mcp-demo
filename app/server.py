@@ -39,7 +39,7 @@ logger = logging.getLogger("azure_mcp_demo.server")
 # ---------------------------------------------------------------------------
 _mcp = FastMCP(
     "azure-mcp-demo",
-    description=(
+    instructions=(
         "Read-only Azure inventory MCP server. "
         "Requires a valid Entra-issued v2.0 JWT on every request."
     ),
