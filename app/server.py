@@ -60,6 +60,30 @@ async def _health_handler(request: Request) -> JSONResponse:
 # ---------------------------------------------------------------------------
 # ASGI app factory (called by uvicorn --factory and in tests).
 # ---------------------------------------------------------------------------
+def _build_inner_app(mcp: FastMCP | None = None) -> Starlette:
+    """The inner (pre-auth) ASGI app: the /health probe + the mounted MCP
+    Streamable-HTTP app.
+
+    The MCP app's Streamable-HTTP session manager runs inside an app **lifespan**
+    (``FastMCP.streamable_http_app`` sets ``lifespan=lambda app: session_manager.run()``).
+    Mounting that app does NOT run its lifespan, so the parent app must run the
+    session manager itself — otherwise every MCP request fails with
+    "Task group is not initialized". We therefore wire the same lifespan here.
+
+    *mcp* defaults to the shared module instance (one per process). Tests pass a fresh
+    instance because a session manager's ``run()`` may only be entered once.
+    """
+    mcp = mcp if mcp is not None else _mcp
+    mcp_app = mcp.streamable_http_app()
+    return Starlette(
+        routes=[
+            Route(_HEALTH_PATH, _health_handler, methods=["GET"]),
+            Mount("/", app=mcp_app),
+        ],
+        lifespan=lambda _app: mcp.session_manager.run(),
+    )
+
+
 def create_app():
     """Build and return the fully-wired ASGI application.
 
@@ -72,15 +96,7 @@ def create_app():
         settings.tenant_id,
         settings.audiences,
     )
-
-    inner = Starlette(
-        routes=[
-            Route(_HEALTH_PATH, _health_handler, methods=["GET"]),
-            Mount("/", app=_mcp.streamable_http_app()),
-        ]
-    )
-
-    return EntraAuthMiddleware(inner, validator, exempt_paths={_HEALTH_PATH})
+    return EntraAuthMiddleware(_build_inner_app(), validator, exempt_paths={_HEALTH_PATH})
 
 
 # ---------------------------------------------------------------------------
