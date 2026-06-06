@@ -24,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
-      - uses: hashicorp/setup-terraform@b9cd54531c595c8e1b3c0ed0a7a1dad3b6bb94ec  # v3.1.2
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd  # v3.1.2
         with:
           terraform_version: "1.9"
           cli_config_credentials_token: ${{ secrets.HCP_TF_TOKEN }}
