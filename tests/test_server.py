@@ -61,3 +61,29 @@ def test_health_endpoint_unauthenticated(monkeypatch):
         resp = client.get("/health")
     assert resp.status_code == 200
     assert resp.json()["status"] == "ok"
+
+
+def test_mcp_transport_session_manager_runs():
+    """The mounted MCP Streamable-HTTP session manager must start via the app lifespan.
+
+    Regression guard: without wiring ``session_manager.run()`` into the parent app's
+    lifespan, every ``/mcp`` request 500s with "Task group is not initialized". We hit
+    the inner (pre-auth) app directly — no Entra token needed — and assert the request
+    reaches the MCP transport (any non-500 response) rather than the uninitialised
+    task group.
+    """
+    from mcp.server.fastmcp import FastMCP
+    from starlette.testclient import TestClient
+
+    from app.server import _build_inner_app
+
+    # Fresh FastMCP: a session manager's run() may only be entered once, and the
+    # module-level instance is used (and run) by the other lifespan test.
+    init = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}
+    with TestClient(_build_inner_app(FastMCP("test-server"))) as client:
+        resp = client.post(
+            "/mcp",
+            json=init,
+            headers={"Accept": "application/json, text/event-stream"},
+        )
+    assert resp.status_code != 500, f"MCP transport 500 (lifespan not wired?): {resp.text}"
