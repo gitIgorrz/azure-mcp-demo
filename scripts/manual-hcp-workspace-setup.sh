@@ -113,9 +113,9 @@ cat <<EOF
 ---------------------------------------------------------------------------
 PART B — HCP Terraform workspace '${HCP_WORKSPACE}'
 ---------------------------------------------------------------------------
-Execution mode: Remote, CLI-driven. The CI (tf-plan / tf-apply workflows) drives
-Terraform against this workspace via the cloud{} block + HCP_TF_TOKEN — no VCS
-connection is configured. Create the workspace as a "CLI-Driven Workflow".
+Execution mode: Remote, VCS-driven (ADR-007). Connect this workspace to the GitHub
+repo gitIgorrz/azure-mcp-demo (working directory terraform/), auto-apply OFF, in the
+HCP UI. HCP runs plan/apply on git changes and on runs queued by build-push.
 
 Set these workspace ENVIRONMENT variables. Choose ONE path. No secret in either.
 

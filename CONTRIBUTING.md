@@ -229,8 +229,9 @@ Hooks run: `gitleaks`, `terraform fmt`, `checkov` (quick), `ruff format --check`
 
 ### Terraform changes
 
-PRs touching `terraform/` trigger a `terraform plan`. Review the plan output in the PR
-before approving. Apply happens only on `main` after the **GitHub Environment gate** approval.
+PRs touching `terraform/` get an **HCP speculative plan** as a status check (plus `tf-validate`).
+Review it before approving. On merge to `main`, HCP queues a run; **apply is approved in HCP**
+(auto-apply is off).
 
 ---
 

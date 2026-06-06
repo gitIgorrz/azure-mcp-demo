@@ -1,7 +1,14 @@
 # ADR-013: GitHub Environment gate for Terraform apply
 
 **Date:** 2026-06-04
-**Status:** Accepted
+**Status:** Superseded by ADR-007 (VCS-driven model), 2026-06-06
+
+> **Superseded.** The project moved to the VCS-driven HCP model (ADR-007): Terraform runs in
+> **HCP Terraform**, not GitHub Actions, so there is no `tf-apply.yml` and no GitHub
+> `environment: lab` gate. The apply gate is now **HCP's manual apply approval** (workspace
+> auto-apply = off): every run plans and waits for a human to approve the apply in HCP. The
+> principle below — a human gate between plan and apply — is preserved; only the mechanism
+> moved from GitHub to HCP. The lab self-approval risk and the enterprise target still apply.
 
 ## Context
 

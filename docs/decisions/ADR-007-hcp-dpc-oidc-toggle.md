@@ -56,12 +56,32 @@ See `scripts/manual-hcp-workspace-setup.sh` for exact step-by-step for both path
   or where a named SP identity is required for audit traceability.
 - Both are secretless — no client secret ever stored in HCP or committed to the repo.
 
+## Execution model: VCS-driven
+
+The workspace `azure-mcp-demo` is **VCS-driven**, connected to `gitIgorrz/azure-mcp-demo`
+(working directory `terraform/`). HCP runs `plan`/`apply`; **GitHub Actions never runs Terraform
+and never authenticates to Azure**, so there is no GitHub-OIDC CI identity (this ADR supersedes
+ADR-008). Auto-apply is **off** — every run plans and waits for a human to approve the apply in
+HCP, and that manual apply approval is the deploy gate (this ADR supersedes the
+GitHub-Environment gate of ADR-013).
+
+### Container image digest handoff
+
+The image is built by GitHub Actions (`build-push.yml`) and pushed to GHCR. The new digest
+reaches HCP via the **HCP API**: after the push, `build-push` uses `HCP_TF_TOKEN` to set the
+workspace's `container_image` Terraform variable to `…@sha256:<digest>` and queue a run, which
+plans and waits for apply approval. The image reference stays out of git (HCP holds it as a
+workspace variable). Alternatives considered: committing the digest to a tfvars file (GitOps) or
+fully manual — the API path keeps the repo clean while staying automated.
+
 ## Consequences
 
-- Workspace creation and federated credential setup are **manual steps** (see `scripts/`).
-- Switching between modes requires updating the workspace variable set, not code.
-- HCP workspace execution mode: **VCS-driven** (recommended, see Deliverable 5 guidance in
-  docs). CLI-driven is the fallback for local development.
+- Workspace creation, VCS connection, and federated credential setup are **manual steps**
+  (`scripts/manual-hcp-workspace-setup.sh` + `docs/branch-protection.md`).
+- Switching DPC↔SP modes requires updating the workspace variable set, not code.
+- `build-push.yml` needs `HCP_TF_TOKEN` (set the image var + queue runs); `smoke-test.yml` uses
+  it to read the health URL from state outputs.
+- A local `terraform plan` still works via the `cloud{}` block for development.
 
 ## Enterprise target
 

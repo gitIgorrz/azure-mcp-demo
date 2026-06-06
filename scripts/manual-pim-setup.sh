@@ -17,10 +17,10 @@
 #        ever added, re-run with `PIM_MODE=pim` to convert to eligible-only.
 #
 # COMPENSATING CONTROLS (fallback mode):  scope is the single RG, never the
-#        subscription; the GitHub Environment 'lab' approval gate (ADR-013) is an
-#        independent second control before any apply; federated subjects are tightly
-#        scoped (ADR-008); all role activity is audit-logged. Schedule a quarterly
-#        access review of the group.
+#        subscription; the HCP apply approval gate (ADR-013) is an independent second
+#        control before any apply; the HCP federated-credential subjects are tightly
+#        scoped to the workspace + run phase (ADR-007/008); all role activity is
+#        audit-logged. Schedule a quarterly access review of the group.
 #
 # WHY MANUAL:  Creates an Entra group and a Contributor role grant (PIM eligibility
 #        or permanent assignment) — privileged identity-governance mutations.
@@ -30,7 +30,7 @@
 #
 # WHO RUNS IT:  gitIgorrz, `az login` as Owner / User Access Administrator at the RG.
 #
-# RELATED:  ADR-013 (GitHub Environment gate), ADR-014 (PIM + fallback).
+# RELATED:  ADR-013 (apply gate, now in HCP), ADR-014 (PIM + fallback).
 #
 # RISK (accepted, lab):  single maintainer — in PIM mode this means self-activation;
 #        in fallback mode it means a standing (but RG-scoped) Contributor grant.
@@ -97,12 +97,11 @@ echo "  group objectId: ${GROUP_ID}"
 echo
 
 # -----------------------------------------------------------------------------
-# STEP 2 — Add the deploy identities as MEMBERS of the group.
-#          Membership + PIM eligibility = the identity can ELEVATE, not that it
-#          holds Contributor standing. Pass the SP object IDs from the OIDC/HCP
-#          scripts as env vars, or add them in the portal.
-#            HCP_TF_SP_OBJECT_ID  — from manual-hcp-workspace-setup.sh
-#            GH_APPLY_SP_OBJECT_ID — from manual-github-oidc-setup.sh
+# STEP 2 — Add the deploy identity as a MEMBER of the group.
+#          The deploy identity is the HCP Terraform service principal (HCP runs
+#          Terraform in the VCS-driven model, ADR-007). Membership + PIM eligibility
+#          = it can ELEVATE, not that it holds Contributor standing.
+#            HCP_TF_SP_OBJECT_ID — from manual-hcp-workspace-setup.sh
 # -----------------------------------------------------------------------------
 add_member() {  # $1 = sp object id (optional)
   local oid="$1"
@@ -115,9 +114,8 @@ add_member() {  # $1 = sp object id (optional)
     echo "  [done] added ${oid}."
   fi
 }
-echo "Adding deploy identities to the group (skipped if env vars unset)..."
+echo "Adding the HCP TF deploy identity to the group (skipped if env var unset)..."
 add_member "${HCP_TF_SP_OBJECT_ID:-}"
-add_member "${GH_APPLY_SP_OBJECT_ID:-}"
 echo
 echo "  NOTE: PIM activation for *workload* identities (service principals) requires"
 echo "        Entra ID P2. If only human operators activate, add your user instead:"
@@ -197,9 +195,9 @@ else
   fi
   echo
   echo "  COMPENSATING CONTROLS active (ADR-014): RG-scope only (never subscription);"
-  echo "  the GitHub Environment 'lab' approval gate (ADR-013) is an independent second"
-  echo "  control before any apply; federated subjects are tightly scoped (ADR-008); all"
-  echo "  role activity is audit-logged. Schedule a quarterly access review of the group."
+  echo "  the HCP apply approval gate (ADR-013) is an independent second control before any"
+  echo "  apply; HCP federated subjects are workspace/run-phase scoped (ADR-007); all role"
+  echo "  activity is audit-logged. Schedule a quarterly access review of the group."
   echo
 fi
 
@@ -243,5 +241,5 @@ else
 fi
 
 echo
-echo "Done. The GitHub Environment gate (ADR-013) remains the second, independent"
+echo "Done. The HCP apply approval gate (ADR-013) remains the second, independent"
 echo "control before any apply runs."

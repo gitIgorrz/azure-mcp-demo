@@ -5,7 +5,7 @@ enabling/platform capability for AI agents.
 
 The server exposes **read-only** Azure inventory tools (subscription metadata, resource groups,
 resource inventory via Resource Graph). Agents call it over Streamable-HTTP with Entra-issued
-tokens. Zero standing secrets end-to-end: GitHub OIDC, HCP Dynamic Provider Credentials,
+tokens. Zero standing secrets end-to-end: HCP Dynamic Provider Credentials (OIDC),
 Azure federated credentials, and a User-Assigned Managed Identity at runtime.
 
 > **Lab build.** This repo is a deliberate, cost-conscious subset of a larger enterprise vision.

@@ -1,7 +1,16 @@
 # ADR-008: GitHub OIDC federated credentials — tightly scoped subjects
 
 **Date:** 2026-06-04
-**Status:** Accepted
+**Status:** Superseded by ADR-007 (VCS-driven model), 2026-06-06
+
+> **Superseded.** In the VCS-driven model (ADR-007) GitHub Actions never authenticates to
+> Azure — **HCP** runs Terraform and authenticates via **HCP Dynamic Provider Credentials**
+> (federated). The GitHub-OIDC CI app registration and its federated credentials are removed
+> (`manual-github-oidc-setup.sh` deleted). The tight-subject principle below still holds, but
+> now applies to the **HCP** federated-credential subjects created by
+> `manual-hcp-workspace-setup.sh`:
+> `organization:gitIgorrz:project:igor-lab:workspace:azure-mcp-demo:run_phase:plan|apply` —
+> no wildcards, scoped to the specific workspace and run phase.
 
 ## Context
 

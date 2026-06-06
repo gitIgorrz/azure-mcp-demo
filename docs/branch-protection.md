@@ -31,28 +31,30 @@ YAML (yamllint)                 ← lint.yml
 Markdown (markdownlint)         ← lint.yml
 pytest (Python 3.12)            ← unit-tests.yml
 terraform validate + checkov    ← tf-validate.yml  (only if terraform/** changed)
-terraform plan                  ← tf-plan.yml      (only if terraform/** changed)
 ```
 
-> **Note**: `tf-validate` and `tf-plan` only run when `terraform/**` files change.
-> Mark them as "optional" status checks or accept that PRs touching only app code will
-> skip those checks — GitHub will show them as not required when not triggered.
+> **Note**: `tf-validate` only runs when `terraform/**` files change — GitHub shows it as not
+> required when not triggered. There is no `tf-plan` workflow: in the VCS-driven model HCP
+> Terraform posts its own speculative **plan** as a PR status check (enable it in the workspace
+> VCS settings).
 
 ---
 
-## 2. GitHub Environment: `lab`
+## 2. Apply approval — HCP Terraform (not a GitHub Environment)
 
-In **Settings → Environments → New environment → `lab`**:
+In the **VCS-driven** model (ADR-007) the apply gate lives in **HCP Terraform**, not GitHub
+Actions. Configure the workspace `azure-mcp-demo`:
 
-| Setting | Value |
-|---------|-------|
-| Required reviewers | `@gitIgorrz` |
-| Prevent self-review | ✅ (if GitHub Plan supports it; otherwise accept self-review for lab) |
-| Deployment branches | Selected branches → `main` only |
+| Setting | Value | Why |
+|---------|-------|-----|
+| Settings → General → **Auto-apply** | **Off** | Every run waits for manual apply approval |
+| Settings → General → Execution mode | Remote | HCP runs Terraform |
+| VCS → Automatic speculative plans | On | Plan results posted on PRs |
 
-This environment gate is the approval step before `terraform apply` runs.
-The `tf-apply.yml` workflow declares `environment: lab`, so GitHub will pause
-and request approval from the listed reviewers.
+Every run — whether triggered by a push to `main` or queued by `build-push` after an image
+build — produces a plan and **waits for a human to approve the apply** in the HCP UI. That
+manual apply approval is the deploy gate (ADR-013). Optionally add HCP **run notifications** so
+pending applies are surfaced (Slack/email/webhook).
 
 ---
 
@@ -64,17 +66,12 @@ Set these in **Settings → Secrets and variables → Actions**.
 
 | Secret name | Description |
 |-------------|-------------|
-| `HCP_TF_TOKEN` | HCP Terraform API token for org `gitIgorrz` / workspace `azure-mcp-demo`. Create at: app.terraform.io → User Settings → Tokens |
+| `HCP_TF_TOKEN` | HCP Terraform API token for org `gitIgorrz` / workspace `azure-mcp-demo`. Used by `build-push.yml` to set the image variable + queue a run, and by `smoke-test.yml` to read the health URL. Create at: app.terraform.io → User Settings → Tokens |
 
-### Repository variables (not secrets — these are identifiers)
+### Repository variables
 
-| Variable name | Description |
-|---------------|-------------|
-| `AZURE_TENANT_ID` | Entra tenant GUID |
-| `AZURE_SUBSCRIPTION_ID` | Azure subscription GUID |
-| `AZURE_CLIENT_ID` | Client ID of the CI app registration (from `scripts/manual-github-oidc-setup.sh`) |
-
-> These were surfaced as non-secret variables by `manual-github-oidc-setup.sh` (Phase 2).
+**None required.** In the VCS-driven model the CI never authenticates to Azure (HCP does, via
+DPC federated credentials), so the previous `AZURE_*` variables are not used.
 
 ---
 
@@ -95,10 +92,7 @@ SHA pins used in this repo:
 |--------|---------|-----|
 | `actions/checkout` | v4.2.2 | `11bd71901bbe5b1630ceea73d27597364c9af683` |
 | `actions/setup-python` | v5.3.0 | `0b93645e9fea7318ecaed2b359559ac225c90a2b` |
-| `actions/upload-artifact` | v4.6.0 | `65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08` |
-| `actions/download-artifact` | v4.1.8 | `fa0a91b85d4f404e444e00e005971372dc801d16` |
-| `actions/github-script` | v7.0.1 | `60a0d83039c74a4aee543508d2ffcb1c3799cdea` |
-| `hashicorp/setup-terraform` | v3.1.2 | `b9cd54531c595c8e1b3c0ed0a7a1dad3b6bb94ec` |
+| `hashicorp/setup-terraform` | v3.1.2 | `b9cd54a3c349d3f38e8881555d616ced269862dd` |
 | `docker/login-action` | v3.3.0 | `9780b0c442fbb1117ed29e0efdff1e18412f7567` |
 | `docker/metadata-action` | v5.6.1 | `369eb591f429131d6889c46b94e711f089e6ca96` |
 | `docker/build-push-action` | v5.4.0 | `ca052bb54ab0790a636c9b5f226502c73d547a25` |

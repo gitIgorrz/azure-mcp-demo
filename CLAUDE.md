@@ -50,8 +50,10 @@ azure-mcp-demo/
 - **Registry**: GHCR (`ghcr.io/gitigorrz/azure-mcp-demo`), image pinned by digest
 - **Identity**: User-Assigned Managed Identity → Reader at resource-group scope
 - **Auth (inbound)**: Entra JWT validation (issuer / audience / expiry / claims)
-- **Auth (CI)**: GitHub OIDC → Azure federated credential, tightly scoped per-repo + per-branch/env
-- **Auth (IaC)**: HCP Dynamic Provider Credentials (OIDC) default; SP federated-cred toggle
+- **Auth (CI)**: none to Azure — CI only pushes to GHCR (`GITHUB_TOKEN`) and hands the image
+  digest to HCP (`HCP_TF_TOKEN`). HCP authenticates to Azure (see Auth (IaC)).
+- **Auth (IaC)**: VCS-driven HCP Terraform; HCP Dynamic Provider Credentials (OIDC) default;
+  SP federated-cred toggle (ADR-007)
 - **Transport**: Streamable-HTTP (remote/agents); stdio (local dev only)
 - **Tools**: health, subscription metadata, resource-group list, resource inventory (Resource Graph)
   — read-only only; **no destructive tools exist in this codebase**

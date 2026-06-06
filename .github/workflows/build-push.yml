@@ -1,5 +1,9 @@
 name: Build & Push
 
+# Builds the container image, pushes it to GHCR, then hands the new digest to HCP
+# Terraform (VCS-driven model, ADR-007): sets the workspace `container_image`
+# variable and queues a run. The apply is gated by HCP's manual approval
+# (auto-apply is off), which is the deploy approval control (ADR-013).
 on:
   push:
     branches: [main]
@@ -7,26 +11,29 @@ on:
       - "app/**"
       - "Dockerfile"
       - ".dockerignore"
+      - "pyproject.toml" # build input: the image runs `pip install .`
+  workflow_dispatch: {}
 
 permissions:
   contents: read
-  packages: write   # GHCR push via GITHUB_TOKEN
+  packages: write # GHCR push via GITHUB_TOKEN
+
+env:
+  HCP_ORG: gitIgorrz
+  HCP_WORKSPACE: azure-mcp-demo
+  TFE_HOST: app.terraform.io
+  IMAGE: ghcr.io/gitigorrz/azure-mcp-demo
 
 jobs:
   build-push:
-    name: Build image and push to GHCR
+    name: Build, push to GHCR, hand digest to HCP
     runs-on: ubuntu-latest
 
-    outputs:
-      image_ref: ${{ steps.meta.outputs.tags }}
-      image_digest: ${{ steps.push.outputs.digest }}
-      image_with_digest: ghcr.io/gitigorrz/azure-mcp-demo@${{ steps.push.outputs.digest }}
-
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Log in to GHCR
-        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567  # v3.3.0
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -41,16 +48,16 @@ jobs:
 
       - name: Docker metadata
         id: meta
-        uses: docker/metadata-action@369eb591f429131d6889c46b94e711f089e6ca96  # v5.6.1
+        uses: docker/metadata-action@369eb591f429131d6889c46b94e711f089e6ca96 # v5.6.1
         with:
-          images: ghcr.io/gitigorrz/azure-mcp-demo
+          images: ${{ env.IMAGE }}
           tags: |
             type=sha,prefix=sha-,format=short
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push
         id: push
-        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25  # v5.4.0
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5.4.0
         with:
           context: .
           file: Dockerfile
@@ -59,15 +66,55 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             PYTHON_IMAGE=${{ steps.base.outputs.python_image }}
-          provenance: false  # keep manifest simple; no attestation layer
+          provenance: false # keep manifest simple; no attestation layer
 
-      - name: Write image ref artifact
+      - name: Hand digest to HCP and queue a deploy run
+        env:
+          TFE_TOKEN: ${{ secrets.HCP_TF_TOKEN }}
         run: |
-          echo "ghcr.io/gitigorrz/azure-mcp-demo@${{ steps.push.outputs.digest }}" > image-ref.txt
+          set -euo pipefail
+          IMAGE_REF="${IMAGE}@${{ steps.push.outputs.digest }}"
+          echo "Deploying image: ${IMAGE_REF}"
+          base="https://${TFE_HOST}/api/v2"
+          api() {
+            curl -sS --fail \
+              -H "Authorization: Bearer ${TFE_TOKEN}" \
+              -H "Content-Type: application/vnd.api+json" "$@"
+          }
 
-      - name: Upload image ref
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08  # v4.6.0
-        with:
-          name: image-ref
-          path: image-ref.txt
-          retention-days: 3
+          ws_id=$(api "${base}/organizations/${HCP_ORG}/workspaces/${HCP_WORKSPACE}" \
+            | jq -r '.data.id')
+          echo "HCP workspace: ${ws_id}"
+
+          # Set (create or update) the terraform-category container_image variable.
+          var_id=$(api "${base}/workspaces/${ws_id}/vars" \
+            | jq -r '.data[] | select(.attributes.key=="container_image") | .id')
+          attrs=$(jq -nc --arg v "$IMAGE_REF" \
+            '{key:"container_image",value:$v,category:"terraform",hcl:false,sensitive:false}')
+          if [ -n "$var_id" ]; then
+            body=$(jq -nc --arg id "$var_id" --argjson a "$attrs" \
+              '{data:{type:"vars",id:$id,attributes:$a}}')
+            api -X PATCH "${base}/workspaces/${ws_id}/vars/${var_id}" -d "$body" >/dev/null
+            echo "Updated container_image var ${var_id}"
+          else
+            body=$(jq -nc --argjson a "$attrs" '{data:{type:"vars",attributes:$a}}')
+            api -X POST "${base}/workspaces/${ws_id}/vars" -d "$body" >/dev/null
+            echo "Created container_image var"
+          fi
+
+          # Queue a run. auto-apply is OFF, so this plans and waits for manual
+          # apply approval in HCP (the deploy gate, ADR-013).
+          run_body=$(jq -nc --arg ws "$ws_id" --arg m "Deploy ${IMAGE_REF} (build-push)" \
+            '{data:{type:"runs",attributes:{message:$m},
+              relationships:{workspace:{data:{type:"workspaces",id:$ws}}}}}')
+          run_id=$(api -X POST "${base}/runs" -d "$run_body" | jq -r '.data.id')
+          url="https://${TFE_HOST}/app/${HCP_ORG}/workspaces/${HCP_WORKSPACE}/runs/${run_id}"
+          echo "Queued HCP run ${run_id}."
+          echo "Approve the apply in HCP: ${url}"
+          {
+            echo "### Deploy queued"
+            echo ""
+            echo "Image: \`${IMAGE_REF}\`"
+            echo ""
+            echo "[Approve the apply in HCP Terraform](${url})"
+          } >> "$GITHUB_STEP_SUMMARY"
