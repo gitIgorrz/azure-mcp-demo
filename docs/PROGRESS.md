@@ -7,12 +7,14 @@
 
 ## Current status
 
-**Phase:** PROVISIONED & DEPLOYED 🚀 (2026-06-06) — running in Azure (ukwest)
-**Last completed step:** VCS-driven HCP deploy; MCP server live. `/health` ok; auth **enforced**
-(401 without token) and **validated** (valid Entra JWT passes) end-to-end.
-**Next step:** merge **PR #9** (MCP host-validation fix) → redeploy → authenticated **tool call
-returns Azure data** (final proof). Full execution journal: `docs/provisioning-log.md` (local-only).
-Build phases 0–8: complete.
+**Phase:** ✅ END-TO-END WORKING (2026-06-06) — running in Azure (ukwest); final proof achieved
+**Last completed step:** **PR #9** (MCP host-validation fix) merged + redeployed → an authenticated
+MCP client call over the public ukwest endpoint succeeded: `initialize` OK, `tools/list` returns
+the 4 tools, and `list_resource_groups` returned **`rg-mcp-demo-lab` with real Azure tags** — live
+data via the UAMI. Full secretless chain proven (Entra v2.0 JWT → middleware → MCP HTTP →
+DefaultAzureCredential(UAMI) → Resource Graph; zero standing secrets). PRs #9 and #10 merged.
+**Next step:** none required — core goal **done**. Optional follow-ups only (see Remaining below).
+Full execution journal: `docs/provisioning-log.md` (local-only). Build phases 0–8: complete.
 
 ---
 
@@ -33,6 +35,13 @@ step-by-step (with real resource IDs) is the **local-only** `docs/provisioning-l
 - **Deployed (ukwest):** RG, UAMI, Log Analytics, Container App env + app, budget — all live.
   `/health` returns ok; auth **enforced** (401 no token) and **validated** (valid JWT passes).
 
+### Final proof — authenticated tool call returns live Azure data ✅
+With PR #9 deployed (image `…@sha256:15a082eb…`), an authenticated MCP client call succeeded over
+the public ukwest endpoint: `initialize` OK (server azure-mcp-demo, mcp SDK 1.27.2) → `tools/list`
+(health, get_subscription, list_resource_groups, list_resources) → `list_resource_groups` returned
+**`rg-mcp-demo-lab` (ukwest) with real tags**. Least-privilege confirmed: only the Reader-scoped RG
+is visible (ADR-009). This was the last open proof; the lab's core objective is met.
+
 ### Architecture changes this session (PRs, all merged unless noted)
 - **VCS-driven HCP** instead of CLI-driven — HCP runs Terraform; apply gate is **HCP approval**
   (not a GitHub Environment). ADR-007 updated; ADR-008 + ADR-013 superseded. (PR #3)
@@ -48,14 +57,16 @@ step-by-step (with real resource IDs) is the **local-only** `docs/provisioning-l
 4. Subscription missing the `Microsoft.App` resource provider → first apply 409 (PR #5 + script).
 5. Diagnostic settings used `category_group = "allLogs"` (invalid for Container Apps) → metrics-only (PR #7).
 6. App startup: `FastMCP(description=)` crash (PR #6) → MCP session-manager **lifespan not run**
-   (PR #8) → MCP **DNS-rebinding host validation** rejected the FQDN, 421 (**PR #9, pending**).
+   (PR #8) → MCP **DNS-rebinding host validation** rejected the FQDN, 421 (**PR #9, merged**).
    Added `tests/test_server.py` — the missing server smoke-tests that would have caught #6/#8/#9.
 
-### Remaining
-- Merge **PR #9** → redeploy → authenticated tool call returns Azure data.
-- Optional hardening: after the first apply, narrow the HCP TF SP's **subscription**-Contributor to
-  **RG scope** (`manual-pim-setup.sh`) and remove the subscription grant.
-- Docs: add a "pre-authorizing a client" section to `docs/connecting-agents.md`.
+### Remaining (all optional — core goal met)
+- Optional hardening: narrow the HCP TF SP's **subscription**-Contributor to **RG scope**
+  (`manual-pim-setup.sh`) and remove the subscription grant.
+- Docs: add a "pre-authorizing a client" section to `docs/connecting-agents.md`. The script
+  `scripts/manual-preauthorize-client.sh` exists (added PR #10); the doc section does not yet.
+- Decommission when finished: `terraform destroy` via HCP, then identity cleanup
+  (`scripts/teardown/`) — see `docs/cost.md` / `docs/runbook.md`.
 
 ---
 
