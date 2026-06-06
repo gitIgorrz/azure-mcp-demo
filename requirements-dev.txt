@@ -1,0 +1,6 @@
+# Development / test dependencies for azure-mcp-demo.
+# Install:  python -m pip install -r requirements-dev.txt
+-r app/requirements.txt
+pytest>=8.0,<9.0
+starlette>=0.37,<1.0   # test harness (TestClient) for the ASGI auth middleware
+httpx>=0.27,<1.0       # transport used by Starlette's TestClient

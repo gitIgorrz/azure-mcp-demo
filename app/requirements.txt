@@ -1,0 +1,19 @@
+# azure-mcp-demo — MCP server runtime dependencies.
+#
+# PyJWT[crypto] pulls in `cryptography` for RS256 verification and ships PyJWKClient
+# (JWKS key caching). See ADR-006 and app/auth/.
+PyJWT[crypto]>=2.9.0,<3.0.0
+
+# --- Phase 4: MCP server + Azure SDK stack ---
+# mcp brings starlette + anyio transitively; httpx-sse for Streamable-HTTP.
+mcp>=1.3.0,<2.0.0
+# azure-identity supplies DefaultAzureCredential (UAMI in Container Apps, env/CLI locally).
+azure-identity>=1.19.0,<2.0.0
+# azure-mgmt-resource: ResourceManagementClient for resource-group listing.
+azure-mgmt-resource>=23.0.0,<24.0.0
+# azure-mgmt-subscription: SubscriptionClient for subscription metadata.
+azure-mgmt-subscription>=3.0.0,<4.0.0
+# azure-mgmt-resourcegraph: ResourceGraphClient for cross-resource KQL queries.
+azure-mgmt-resourcegraph>=8.0.0,<9.0.0
+# uvicorn[standard]: ASGI server (Streamable-HTTP transport in Container Apps).
+uvicorn[standard]>=0.32.0,<1.0.0

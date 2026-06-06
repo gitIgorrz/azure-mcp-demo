@@ -1,0 +1,14 @@
+extends: default
+
+rules:
+  line-length:
+    max: 120
+    level: warning
+  truthy:
+    # "on" is a valid YAML boolean that GitHub Actions uses as a workflow trigger key.
+    allowed-values: ["true", "false", "on"]
+    check-keys: false
+  document-start:
+    present: false
+  comments:
+    min-spaces-from-content: 1

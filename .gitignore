@@ -1,0 +1,66 @@
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfplan
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+# Real variable files may carry environment-specific values — never commit them.
+# The committed template is terraform/terraform.tfvars.example.
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+# terraform.lock.hcl is COMMITTED (reproducible provider installs)
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+.env
+.env.*
+!.env.example
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# Docker
+.docker/
+
+# Node (if ever introduced)
+node_modules/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+*.code-workspace
+
+# Secrets / local config (belt-and-suspenders; gitleaks also scans)
+*.pem
+*.key
+*.p12
+*.pfx
+*secret*
+*credential*
+local.settings.json
+
+# Local-only operator material — kept out of the public repo (real resource/identity
+# IDs, internal pitch). Keep these locally for your own reference.
+docs/provisioning-log.md
+docs/background/MCP_Enabling_Capability_Pitch.txt

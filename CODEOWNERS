@@ -1,0 +1,10 @@
+# CODEOWNERS
+# All files require review from @gitIgorrz
+# Extend this when additional maintainers join.
+
+*                          @gitIgorrz
+terraform/                 @gitIgorrz
+app/                       @gitIgorrz
+.github/workflows/         @gitIgorrz
+docs/decisions/            @gitIgorrz
+SECURITY.md                @gitIgorrz

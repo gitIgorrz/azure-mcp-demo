@@ -1,0 +1,114 @@
+name: Terraform Apply
+
+# Triggered when Build & Push succeeds on main (app change → new image → redeploy).
+# Can also be triggered manually to apply terraform-only changes (e.g. variables, budget).
+# The "lab" environment gate requires a human approver before apply runs.
+on:
+  workflow_run:
+    workflows: [Build & Push]
+    types: [completed]
+    branches: [main]
+
+  workflow_dispatch:
+    inputs:
+      container_image:
+        description: |
+          Fully-qualified image reference including digest
+          (e.g. ghcr.io/gitigorrz/azure-mcp-demo@sha256:abc123...).
+          Leave empty to use the current value in the HCP TF workspace variable.
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  actions: read   # to download cross-run artifacts
+
+jobs:
+  # Guard: skip if the triggering workflow_run failed (only relevant for workflow_run trigger).
+  check-trigger:
+    name: Check trigger outcome
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.check.outputs.should_run }}
+    steps:
+      - id: check
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            if [ "${{ github.event.workflow_run.conclusion }}" != "success" ]; then
+              echo "should_run=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "should_run=true" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  apply:
+    name: terraform apply
+    runs-on: ubuntu-latest
+    needs: check-trigger
+    if: needs.check-trigger.outputs.should_run == 'true'
+    environment: lab  # GitHub Environment gate — requires approval before apply runs (ADR-014)
+
+    env:
+      TF_VAR_subscription_id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      # Other workspace vars (mcp_tenant_id, mcp_audience, budget_*) are set in the HCP TF workspace.
+
+    outputs:
+      health_url: ${{ steps.outputs.outputs.health_url }}
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - uses: hashicorp/setup-terraform@b9cd54531c595c8e1b3c0ed0a7a1dad3b6bb94ec  # v3.1.2
+        with:
+          terraform_version: "1.9"
+          cli_config_credentials_token: ${{ secrets.HCP_TF_TOKEN }}
+          terraform_wrapper: false
+
+      - name: Download image ref (workflow_run trigger)
+        if: github.event_name == 'workflow_run'
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16  # v4.1.8
+        with:
+          name: image-ref
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set TF_VAR_container_image
+        run: |
+          if [ -f image-ref.txt ]; then
+            image=$(cat image-ref.txt | tr -d '[:space:]')
+            echo "TF_VAR_container_image=${image}" >> "$GITHUB_ENV"
+            echo "Using image from artifact: ${image}"
+          elif [ -n "${{ inputs.container_image }}" ]; then
+            echo "TF_VAR_container_image=${{ inputs.container_image }}" >> "$GITHUB_ENV"
+            echo "Using image from workflow_dispatch input."
+          else
+            echo "No image override; TF will use existing workspace variable value."
+          fi
+
+      - name: Terraform init
+        run: terraform init -input=false
+        working-directory: terraform/
+
+      - name: Terraform apply
+        run: terraform apply -auto-approve -input=false
+        working-directory: terraform/
+
+      - name: Capture outputs
+        id: outputs
+        run: |
+          health_url=$(terraform output -raw container_app_health_url)
+          echo "health_url=${health_url}" >> "$GITHUB_OUTPUT"
+          echo "Deployed. Health URL: ${health_url}"
+        working-directory: terraform/
+
+      - name: Write health URL artifact
+        run: echo "${{ steps.outputs.outputs.health_url }}" > health-url.txt
+
+      - name: Upload health URL
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08  # v4.6.0
+        with:
+          name: health-url
+          path: health-url.txt
+          retention-days: 3

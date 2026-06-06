@@ -1,0 +1,46 @@
+name: Terraform Validate
+
+on:
+  pull_request:
+    paths:
+      - "terraform/**"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: terraform validate + checkov
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - uses: hashicorp/setup-terraform@b9cd54531c595c8e1b3c0ed0a7a1dad3b6bb94ec  # v3.1.2
+        with:
+          terraform_version: "1.9"
+          terraform_wrapper: false
+          # No HCP TF token: -backend=false skips remote backend auth.
+
+      - name: Terraform init (no backend)
+        run: terraform init -backend=false
+        working-directory: terraform/
+
+      - name: Terraform validate
+        run: terraform validate
+        working-directory: terraform/
+
+      - name: Install checkov
+        run: pip install checkov==3.2.250
+
+      - name: Checkov scan
+        run: |
+          checkov \
+            --directory terraform/ \
+            --framework terraform \
+            --quiet \
+            --soft-fail-on CKV_AZURE_140 \
+            --compact
+        # CKV_AZURE_140: Container App HTTPS-only. Our ingress sets allow_insecure_connections = false
+        # explicitly (terraform/main.tf), so HTTP is redirected to HTTPS. Soft-fail retained as a
+        # belt-and-suspenders in case checkov cannot resolve the ingress block in a given version.

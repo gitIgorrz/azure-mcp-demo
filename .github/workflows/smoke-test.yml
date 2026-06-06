@@ -1,0 +1,45 @@
+name: Smoke Test
+
+# Runs after Terraform Apply succeeds. Tests the deployed Container App's
+# unauthenticated /health endpoint to confirm the container is up and responding.
+on:
+  workflow_run:
+    workflows: [Terraform Apply]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  actions: read  # to download cross-run artifacts
+
+jobs:
+  smoke:
+    name: /health check
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success'
+
+    steps:
+      - name: Download health URL artifact
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16  # v4.1.8
+        with:
+          name: health-url
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Read health URL
+        id: url
+        run: |
+          health_url=$(cat health-url.txt | tr -d '[:space:]')
+          echo "health_url=${health_url}" >> "$GITHUB_OUTPUT"
+          echo "Smoke-testing: ${health_url}"
+
+      - name: Wait for container readiness
+        run: sleep 30
+        # Container Apps can take ~30s after apply before the replica is healthy.
+
+      - name: GET /health
+        run: |
+          response=$(curl -sf --max-time 15 "${{ steps.url.outputs.health_url }}")
+          echo "${response}" | jq .
+          echo "${response}" | jq -e '.status == "ok"' > /dev/null
+        # Exits non-zero if: HTTP error, timeout, or .status != "ok"

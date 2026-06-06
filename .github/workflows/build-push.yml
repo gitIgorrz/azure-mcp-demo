@@ -1,0 +1,73 @@
+name: Build & Push
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "Dockerfile"
+      - ".dockerignore"
+
+permissions:
+  contents: read
+  packages: write   # GHCR push via GITHUB_TOKEN
+
+jobs:
+  build-push:
+    name: Build image and push to GHCR
+    runs-on: ubuntu-latest
+
+    outputs:
+      image_ref: ${{ steps.meta.outputs.tags }}
+      image_digest: ${{ steps.push.outputs.digest }}
+      image_with_digest: ghcr.io/gitigorrz/azure-mcp-demo@${{ steps.push.outputs.digest }}
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - name: Log in to GHCR
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567  # v3.3.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve Python base image digest
+        id: base
+        run: |
+          docker pull python:3.12-slim --quiet
+          digest=$(docker inspect python:3.12-slim --format '{{index .RepoDigests 0}}')
+          echo "python_image=${digest}" >> "$GITHUB_OUTPUT"
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@369eb591f429131d6889c46b94e711f089e6ca96  # v5.6.1
+        with:
+          images: ghcr.io/gitigorrz/azure-mcp-demo
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25  # v5.4.0
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            PYTHON_IMAGE=${{ steps.base.outputs.python_image }}
+          provenance: false  # keep manifest simple; no attestation layer
+
+      - name: Write image ref artifact
+        run: |
+          echo "ghcr.io/gitigorrz/azure-mcp-demo@${{ steps.push.outputs.digest }}" > image-ref.txt
+
+      - name: Upload image ref
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08  # v4.6.0
+        with:
+          name: image-ref
+          path: image-ref.txt
+          retention-days: 3

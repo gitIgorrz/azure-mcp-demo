@@ -1,0 +1,46 @@
+# =============================================================================
+# terraform.tfvars.example — template for the azure-mcp-demo Terraform inputs.
+#
+# HOW THESE ARE USED
+# ------------------
+# This project runs Terraform through an HCP Terraform (VCS-driven) workspace
+# (ADR-007), so in normal operation these values are set as **HCP workspace
+# variables** (category = "terraform"), NOT from a local file. This .example
+# exists to (a) document every input in one place and (b) let you run a local
+# `terraform plan` if you copy it to `terraform.tfvars` (which is gitignored).
+#
+#   Local plan:   cp terraform.tfvars.example terraform.tfvars   # then edit
+#   HCP workspace: set each of the below as a Terraform-category variable.
+#
+# NEVER commit a real terraform.tfvars — `.gitignore` blocks *.tfvars and allows
+# only *.tfvars.example. Subscription/tenant IDs are non-secret identifiers (the
+# project surfaces them as GitHub *variables*, not secrets); there are no secrets
+# in this file regardless.
+# =============================================================================
+
+# --- Core ---------------------------------------------------------------------
+subscription_id = "<your-subscription-id>"
+environment     = "lab"            # lab | int | prod
+location        = "australiaeast"
+
+# --- MCP server auth (ADR-006) -----------------------------------------------
+mcp_tenant_id = "<your-tenant-id>"
+
+# Audience the server validates (`aud`). PRODUCED BY scripts/manual-server-app-registration.sh.
+# Accept BOTH forms — a v2.0 token may carry the api:// URI or the bare appId GUID.
+# Replace <APP_ID> with the appId that script prints.
+mcp_audience = "api://<APP_ID>,<APP_ID>"
+
+# Optional caller allow-list (azp/appid). Empty disables it. Comma-separated GUIDs.
+mcp_allowed_app_ids = ""
+
+# --- Container image ----------------------------------------------------------
+# Fully-qualified GHCR reference INCLUDING the @sha256 digest. Produced by the
+# build-push CI workflow; in HCP this is set/updated by the tf-apply pipeline.
+# Leave the placeholder for local plan only.
+container_image = "ghcr.io/gitigorrz/azure-mcp-demo@sha256:<DIGEST>"
+
+# --- Budget -------------------------------------------------------------------
+budget_amount_usd         = 10
+budget_notification_email = "igor_111@hotmail.com"
+budget_start_date         = "2026-06-01T00:00:00Z"   # first of the current month, RFC3339

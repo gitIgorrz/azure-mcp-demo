@@ -1,0 +1,17 @@
+# Consistent line endings across platforms. Text is normalized to LF in the repo.
+* text=auto eol=lf
+
+# Shell scripts MUST be LF — they run in bash / Linux containers and CI; CRLF breaks them.
+*.sh text eol=lf
+
+# Terraform, Python, YAML, Markdown — LF.
+*.tf  text eol=lf
+*.py  text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md  text eol=lf
+
+# Binary assets (no EOL normalization).
+*.png binary
+*.jpg binary
+*.pdf binary

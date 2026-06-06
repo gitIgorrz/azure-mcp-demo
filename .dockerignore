@@ -1,0 +1,39 @@
+# Excludes files from the Docker build context.
+# Keep this in sync with .gitignore and .claudeignore.
+
+# Version control
+.git
+.gitignore
+
+# Python runtime artefacts
+**/__pycache__
+**/*.pyc
+**/*.pyo
+.pytest_cache
+.ruff_cache
+*.egg-info
+dist
+build
+
+# Development virtualenv — deps are installed fresh inside the image
+.venv
+
+# Docs, IaC, and scripts — not needed at runtime
+docs
+scripts
+terraform
+tests
+
+# CI/CD and repo governance — not needed at runtime
+.github
+.pre-commit-config.yaml
+CONTRIBUTING.md
+CODEOWNERS
+SECURITY.md
+
+# Claude Code
+.claudeignore
+.claude
+
+# requirements-dev.txt — runtime image doesn't run tests
+requirements-dev.txt

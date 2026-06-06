@@ -1,0 +1,33 @@
+# Claude Code ignore — files/dirs Claude should never re-scan
+
+# Terraform state & cache (large, sensitive, not source)
+**/.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfplan
+
+# Python artifacts
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# Node (if ever introduced)
+node_modules/
+
+# Build outputs
+.docker/
+
+# Raw pitch file — read ONCE during design pass; use docs/background/architecture-intent.md
+docs/background/MCP_Enabling_Capability_Pitch.txt
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
