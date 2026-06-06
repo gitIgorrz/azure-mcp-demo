@@ -9,7 +9,6 @@
 # When: after HCP TF destroy plan completes; Azure RG must already be gone.
 #
 # Removes:
-#   - CI Entra app registration + 3 federated credentials (ADR-008)
 #   - HCP Terraform identity app registration + its federated credentials (ADR-007)
 #   - Server audience/resource app registration app-azure-mcp-demo-api (ADR-006)
 #   - PIM group grp-mcp-demo-tf-apply + Contributor role grant (ADR-014)
@@ -62,12 +61,11 @@ echo ""
 echo "=== [2/5] Removing Entra app registrations ==="
 echo ""
 echo "Names must match those created by the setup scripts:"
-echo "  sp-azure-mcp-demo-github-oidc  (manual-github-oidc-setup.sh)"
 echo "  sp-azure-mcp-demo-hcp-tf       (manual-hcp-workspace-setup.sh)"
 echo "  app-azure-mcp-demo-api         (manual-server-app-registration.sh)"
 echo ""
 
-for APP_NAME in sp-azure-mcp-demo-github-oidc sp-azure-mcp-demo-hcp-tf app-azure-mcp-demo-api; do
+for APP_NAME in sp-azure-mcp-demo-hcp-tf app-azure-mcp-demo-api; do
   APP_ID=$(az ad app list --display-name "$APP_NAME" --query "[0].appId" --output tsv 2>/dev/null || true)
   if [[ -z "$APP_ID" || "$APP_ID" == "None" ]]; then
     echo "  [skip] '$APP_NAME' not found (already removed or not created)."
@@ -193,7 +191,7 @@ echo ""
 echo "======================================================="
 echo "Identity teardown complete. Summary:"
 echo ""
-echo "  ✓ App registrations (github-oidc, hcp-tf, api): removed (or were absent)"
+echo "  ✓ App registrations (hcp-tf, api): removed (or were absent)"
 echo "  ✓ PIM group 'grp-mcp-demo-tf-apply': removed (or was absent)"
 echo "  ✓ GitHub Actions lab environment + secrets/variables: removed"
 echo "  ? GPG key from GitHub: manual (step 5 above)"

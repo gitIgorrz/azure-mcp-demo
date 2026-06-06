@@ -58,9 +58,9 @@ See `scripts/manual-pim-setup.sh` for exact portal and CLI steps, including:
 
 ## Consequences
 
-- `terraform apply` requires a PIM activation step before the GitHub Environment gate.
-- The apply workflow may need to check for active PIM activation or the human operator
-  must activate before triggering the workflow.
+- The HCP apply run requires the deploy identity (HCP TF SP) to hold Contributor — activated
+  via PIM (or the standing fallback grant) before the apply is approved in HCP.
+- In VCS-driven mode the human approves the apply in HCP after activating PIM (where P2 exists).
 - PIM requires Entra ID P2 licence (or Microsoft Entra ID Governance).
 - For the lab, if PIM licencing is unavailable, document as a known gap and use permanent
   Contributor as a fallback with compensating controls (short-lived federated credential

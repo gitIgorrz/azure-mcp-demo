@@ -55,7 +55,6 @@ When the lab is no longer needed, destroy all resources and clean up the identit
 Disable or delete the GitHub Actions workflows so no new deploys fire during teardown:
 ```bash
 gh workflow disable build-push.yml
-gh workflow disable tf-apply.yml
 ```
 
 ### Step 2 — Terraform destroy

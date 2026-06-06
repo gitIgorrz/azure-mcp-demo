@@ -73,17 +73,20 @@ Run top-to-bottom; later steps consume identifiers produced by earlier ones.
 |---|--------|---------|-----|
 | 1 | [`manual-gpg-setup.sh`](manual-gpg-setup.sh) | signed-commit config (detect + reuse key) | CONTRIBUTING.md |
 | 2 | [`manual-server-app-registration.sh`](manual-server-app-registration.sh) | resource/audience app reg (`api://<appId>`, v2.0 tokens, scope + app role) → `MCP_AUDIENCE` | ADR-006 |
-| 3 | [`manual-github-oidc-setup.sh`](manual-github-oidc-setup.sh) | CI app registration + 3 scoped federated credentials | ADR-005, ADR-008, ADR-013 |
-| 4 | [`manual-hcp-workspace-setup.sh`](manual-hcp-workspace-setup.sh) | HCP workspace + DPC/OIDC (default) or SP-federated (toggle) variable set | ADR-005, ADR-007 |
-| 5 | [`manual-uami-rbac.sh`](manual-uami-rbac.sh) | User-Assigned MI + Reader @ RG scope | ADR-005, ADR-009 |
-| 6 | [`manual-pim-setup.sh`](manual-pim-setup.sh) | Entra group + Contributor @ RG (PIM-eligible, or permanent fallback if no P2) | ADR-013, ADR-014 |
+| 3 | [`manual-hcp-workspace-setup.sh`](manual-hcp-workspace-setup.sh) | HCP TF identity + HCP-trusting federated creds (DPC); workspace + variable set | ADR-005, ADR-007 |
+| 4 | [`manual-uami-rbac.sh`](manual-uami-rbac.sh) | User-Assigned MI + Reader @ RG scope | ADR-005, ADR-009 |
+| 5 | [`manual-pim-setup.sh`](manual-pim-setup.sh) | Entra group + Contributor @ RG for the HCP TF identity (PIM-eligible, or permanent fallback if no P2) | ADR-014 |
 
-> **RG dependency (steps 5–6).** The resource group `rg-mcp-demo-lab` is created by
-> **Terraform**, not by these scripts. Steps 5 and 6 reference the RG scope by its resolved
-> resource ID, so run them **after** the first `terraform apply` creates the RG (each script
-> aborts cleanly if the RG is absent — the chicken-and-egg note is in the script). Steps 1–4
-> have no RG dependency and run first. So the real sequence is: 1→2→3→4 → first `terraform
-> apply` → 5 → 6 → second `terraform apply`.
+> **No GitHub→Azure CI identity.** This is the **VCS-driven** model (ADR-007): HCP runs
+> Terraform and authenticates to Azure via the DPC federated credentials (step 3). GitHub
+> Actions never authenticates to Azure, so there is no `manual-github-oidc-setup.sh` step.
+
+> **RG dependency (steps 4–5).** The resource group `rg-mcp-demo-lab` is created by
+> **Terraform**, not by these scripts. Steps 4 and 5 reference the RG scope by its resolved
+> resource ID, so run them **after** the first apply creates the RG (each script aborts cleanly
+> if the RG is absent — the chicken-and-egg note is in the script). Steps 1–3 have no RG
+> dependency and run first. So the real sequence is: 1→2→3 → first apply (HCP) → 4 → 5 →
+> second apply (HCP).
 
 > **No Entra ID P2?** `manual-pim-setup.sh` defaults to `PIM_MODE=fallback` (permanent
 > Contributor @ RG with compensating controls, ADR-014). The target lab tenant has no P2

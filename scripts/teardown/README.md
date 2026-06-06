@@ -25,7 +25,6 @@ Run **after** confirming with `docs/cost.md § Decommission`.
 
 ```bash
 gh workflow disable build-push.yml
-gh workflow disable tf-apply.yml
 gh workflow disable smoke-test.yml
 ```
 

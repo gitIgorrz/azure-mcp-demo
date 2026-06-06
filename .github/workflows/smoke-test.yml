@@ -1,45 +1,62 @@
 name: Smoke Test
 
-# Runs after Terraform Apply succeeds. Tests the deployed Container App's
-# unauthenticated /health endpoint to confirm the container is up and responding.
+# Run after an HCP apply completes (deploy). Resolves the Container App's health
+# URL from the HCP workspace state outputs and checks the unauthenticated
+# /health endpoint. Triggered manually (the apply is approved in HCP, which the
+# CI does not observe directly).
 on:
-  workflow_run:
-    workflows: [Terraform Apply]
-    types: [completed]
-    branches: [main]
+  workflow_dispatch:
+    inputs:
+      health_url:
+        description: "Health URL override; leave empty to read container_app_health_url from HCP state"
+        required: false
+        default: ""
 
 permissions:
   contents: read
-  actions: read  # to download cross-run artifacts
+
+env:
+  HCP_ORG: gitIgorrz
+  HCP_WORKSPACE: azure-mcp-demo
+  TFE_HOST: app.terraform.io
 
 jobs:
   smoke:
     name: /health check
     runs-on: ubuntu-latest
-    if: github.event.workflow_run.conclusion == 'success'
 
     steps:
-      - name: Download health URL artifact
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16  # v4.1.8
-        with:
-          name: health-url
-          run-id: ${{ github.event.workflow_run.id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Read health URL
+      - name: Resolve health URL
         id: url
+        env:
+          TFE_TOKEN: ${{ secrets.HCP_TF_TOKEN }}
         run: |
-          health_url=$(cat health-url.txt | tr -d '[:space:]')
-          echo "health_url=${health_url}" >> "$GITHUB_OUTPUT"
-          echo "Smoke-testing: ${health_url}"
-
-      - name: Wait for container readiness
-        run: sleep 30
-        # Container Apps can take ~30s after apply before the replica is healthy.
+          set -euo pipefail
+          url="${{ inputs.health_url }}"
+          if [ -z "$url" ]; then
+            base="https://${TFE_HOST}/api/v2"
+            api() {
+              curl -sS --fail \
+                -H "Authorization: Bearer ${TFE_TOKEN}" \
+                -H "Content-Type: application/vnd.api+json" "$@"
+            }
+            ws_id=$(api "${base}/organizations/${HCP_ORG}/workspaces/${HCP_WORKSPACE}" \
+              | jq -r '.data.id')
+            url=$(api "${base}/workspaces/${ws_id}/current-state-version-outputs" \
+              | jq -r '.data[]
+                  | select(.attributes.name=="container_app_health_url")
+                  | .attributes.value')
+          fi
+          if [ -z "$url" ] || [ "$url" = "null" ]; then
+            echo "Could not resolve health URL (no state output yet — has an apply run?)." >&2
+            exit 1
+          fi
+          echo "health_url=${url}" >> "$GITHUB_OUTPUT"
+          echo "Smoke-testing: ${url}"
 
       - name: GET /health
         run: |
           response=$(curl -sf --max-time 15 "${{ steps.url.outputs.health_url }}")
           echo "${response}" | jq .
           echo "${response}" | jq -e '.status == "ok"' > /dev/null
-        # Exits non-zero if: HTTP error, timeout, or .status != "ok"
+        # Exits non-zero on HTTP error, timeout, or .status != "ok".

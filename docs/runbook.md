@@ -57,17 +57,18 @@ running. Never run them unattended.
 scripts/
   manual-gpg-setup.sh                 # 1. GPG signing
   manual-server-app-registration.sh   # 2. resource/audience app reg -> MCP_AUDIENCE
-  manual-github-oidc-setup.sh         # 3. CI app registration + federated credentials
-  manual-hcp-workspace-setup.sh       # 4. HCP workspace + DPC/OIDC variable set
-  # --- first `terraform apply` creates the RG + UAMI before the next two ---
-  manual-uami-rbac.sh                 # 5. Reader @ RG (needs the RG to exist)
-  manual-pim-setup.sh                 # 6. Contributor @ RG (PIM-eligible, or permanent fallback)
+  manual-hcp-workspace-setup.sh       # 3. HCP TF identity (DPC) + workspace + variable set
+  # --- first HCP apply creates the RG + UAMI before the next two ---
+  manual-uami-rbac.sh                 # 4. Reader @ RG (needs the RG to exist)
+  manual-pim-setup.sh                 # 5. Contributor @ RG for the HCP TF identity (PIM/fallback)
 ```
 
-Steps 1–4 have no resource-group dependency. Steps 5–6 reference the RG scope, so run them
-**after** the first `terraform apply` creates it. `manual-pim-setup.sh` defaults to the
-**permanent-Contributor fallback** because this tenant has no Entra ID P2 (set `PIM_MODE=pim`
-where P2 exists). Full instructions: [`scripts/README.md`](../scripts/README.md).
+There is **no GitHub→Azure CI identity**: this is the VCS-driven model (ADR-007), so HCP runs
+Terraform and authenticates to Azure via DPC. Steps 1–3 have no resource-group dependency. Steps
+4–5 reference the RG scope, so run them **after** the first HCP apply creates it.
+`manual-pim-setup.sh` defaults to the **permanent-Contributor fallback** because this tenant has
+no Entra ID P2 (set `PIM_MODE=pim` where P2 exists). Full instructions:
+[`scripts/README.md`](../scripts/README.md).
 
 After each script:
 1. Confirm the verification block at the bottom passed.
@@ -94,72 +95,54 @@ git push -u origin main
 
 Follow [`docs/branch-protection.md`](branch-protection.md):
 1. Protect `main` — require PR review, signed commits, status checks.
-2. Create GitHub Environment `lab` with manual approval gate.
-3. Add Actions **variables** (not secrets — these are non-sensitive IDs):
-   - `AZURE_TENANT_ID`
-   - `AZURE_SUBSCRIPTION_ID`
-   - `AZURE_CLIENT_ID`
-4. Add Actions **secret**:
-   - `HCP_TF_TOKEN` (from `app.terraform.io → User settings → Tokens`)
+2. Add the one Actions **secret**: `HCP_TF_TOKEN` (app.terraform.io → User Settings → Tokens).
+   **No `AZURE_*` variables** — CI never authenticates to Azure (HCP does, via DPC).
+3. The apply gate is **HCP** (workspace auto-apply = off), not a GitHub Environment — see Phase C.
 
 ---
 
-## Phase C — Terraform: first apply
+## Phase C — connect HCP + configure the workspace
 
-The first apply is a two-step process due to the UAMI role assignment needing a
-separate User Access Admin permission (see `terraform/main.tf` header comment).
+In HCP (workspace `azure-mcp-demo`):
 
-### Step 1 — apply without the Container App
+1. **Settings → Version Control** → connect to GitHub `gitIgorrz/azure-mcp-demo`,
+   **Terraform Working Directory = `terraform/`**, **Auto-apply = off** (the apply gate, ADR-013).
+2. **Variables (Terraform category):** `subscription_id`, `mcp_tenant_id`, `mcp_audience`,
+   `budget_notification_email`, `budget_start_date` — see `terraform/terraform.tfvars.example`.
+   Leave `container_image` unset; `build-push` sets it (Phase D).
+3. **Variables (env category):** the DPC vars printed by `manual-hcp-workspace-setup.sh`
+   (`TFC_AZURE_PROVIDER_AUTH`, `TFC_AZURE_RUN_CLIENT_ID`, `ARM_TENANT_ID`, `ARM_SUBSCRIPTION_ID`).
 
-```bash
-cd terraform
-terraform init    # connects to HCP TF; requires HCP_TOKEN env var or browser auth
-terraform plan    # review; should show ~5 resources (RG, UAMI, LAW, CAE, budget)
-```
+**Contributor for the deploy identity.** The HCP TF SP needs Contributor (`manual-pim-setup.sh`,
+step 5). The RG is created by the first apply, so for that **first** run grant Contributor at
+**subscription** scope (or pre-create `rg-mcp-demo-lab`); later runs use the RG-scoped grant.
 
-Push to `main` (or trigger via workflow) to run `tf-apply` through the CI pipeline.
-The `lab` environment gate pauses for your approval before applying.
-
-### Step 2 — assign UAMI Reader role
-
-After the first apply creates the UAMI, run:
-```bash
-bash scripts/manual-uami-rbac.sh
-```
-
-Verify:
-```bash
-az role assignment list --assignee <uami-principal-id> --scope <rg-id>
-```
-
-### Step 3 — apply again to create the Container App
-
-The Container App `terraform` resources are conditioned on the UAMI existing. Re-run
-`tf-apply` (push a commit or trigger `workflow_dispatch`) to complete the deployment.
+**UAMI Reader** (`manual-uami-rbac.sh`) is run **after** the first apply creates the RG + UAMI.
+Until then the app's `/health` passes but its Azure tools return 403. Each HCP run plans and
+**waits for your apply approval**. The first apply happens via Phase D (the image must exist first).
 
 ---
 
 ## Phase D — first deploy
 
-CI handles the full build → apply → smoke-test pipeline automatically on pushes to `main`.
+On a push to `main` touching `app/**`, `Dockerfile`, or `pyproject.toml`, **build-push**:
 
-Manual trigger if needed:
+1. builds + pushes the image to GHCR,
+2. sets the workspace `container_image` variable to the new digest (HCP API),
+3. queues an HCP run.
+
+You then **approve the apply in HCP** (the run link is in the workflow run summary). Trigger a
+build manually with:
 ```bash
-# Trigger build + push
 gh workflow run build-push.yml --ref main
-
-# After build completes, trigger apply (or wait for workflow_run trigger)
-gh workflow run tf-apply.yml --ref main
 ```
 
-### Watch the pipeline
+### Watch + smoke-test
 
 ```bash
-# Follow logs live
-gh run watch
-
-# Check smoke test result
-gh run list --workflow=smoke-test.yml --limit 1
+gh run watch                       # follow the build-push run; it prints the HCP run link
+# after you approve the apply in HCP and it finishes:
+gh workflow run smoke-test.yml     # GETs /health (reads the URL from HCP state outputs)
 ```
 
 ### Verify the server is up
@@ -242,8 +225,9 @@ az containerapp logs show \
 ### Updating Terraform
 
 1. Change files under `terraform/`.
-2. Open a PR — `tf-plan` posts the plan as a PR comment.
-3. Merge to `main` → `tf-apply` runs (requires `lab` environment approval).
+2. Open a PR — HCP posts a **speculative plan** as a PR status check; `tf-validate` runs
+   `validate` + `checkov`.
+3. Merge to `main` → HCP queues a run; **approve the apply in HCP**.
 
 ---
 
@@ -254,8 +238,9 @@ Teardown scripts: [`scripts/teardown/README.md`](../scripts/teardown/README.md).
 
 Summary of order:
 1. Disable CI workflows (`gh workflow disable`).
-2. Terraform destroy (via HCP TF destroy plan).
-3. `scripts/teardown/manual-teardown-identities.sh` — remove CI app reg, PIM group, HCP workspace.
+2. Terraform destroy (queue a destroy run in HCP and approve it).
+3. `scripts/teardown/manual-teardown-identities.sh` — remove the HCP TF + audience app regs,
+   PIM group.
 4. Delete or archive the GitHub repo.
 5. Delete the HCP workspace in the UI.
 
@@ -266,11 +251,11 @@ Summary of order:
 - [ ] All prerequisite tools installed
 - [ ] GPG key configured and verified in GitHub
 - [ ] `az login` authenticated as the operator account
-- [ ] Setup scripts 1–5 run and verified
-- [ ] GitHub repo created; branch protection configured
-- [ ] GitHub Environment `lab` created; Actions variables + `HCP_TF_TOKEN` set
-- [ ] First `terraform apply` completed (step 1)
-- [ ] UAMI Reader role assignment created (`manual-uami-rbac.sh`)
-- [ ] Second `terraform apply` completed (Container App created)
+- [ ] Setup scripts 1–3 run and verified (gpg, server-app-reg, hcp-workspace)
+- [ ] GitHub repo created; branch protection configured; `HCP_TF_TOKEN` secret set
+- [ ] HCP workspace connected to VCS; Terraform + DPC variables set; auto-apply off
+- [ ] First HCP apply approved (RG + UAMI + LAW + CAE + Container App + budget)
+- [ ] UAMI Reader role assignment created (`manual-uami-rbac.sh`, step 4)
+- [ ] HCP TF SP added to PIM/Contributor group (`manual-pim-setup.sh`, step 5)
 - [ ] `/health` returns `{"status": "ok"}`
 - [ ] At least one MCP client connected and tools tested
